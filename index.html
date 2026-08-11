@@ -1,81 +1,323 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
-    <base target="_top">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base target="_top" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aneurysm Detection Reader Study</title>
     <style>
-      /* Clean, modern, mobile-friendly styling */
-      body { 
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-        display: flex; 
-        justify-content: center; 
-        align-items: center; 
-        height: 100vh; 
-        background-color: #f8f9fa; 
-        margin: 0; 
+      :root {
+        --primary: #005293; /* TUM Blue */
+        --primary-dark: #003d6e;
+        --bg: #f5f7fa;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --border: #e2e8f0;
+        --hover: #f8fafc;
+        --radius: 8px;
       }
-      .container { 
-        text-align: center; 
-        background: white; 
-        padding: 40px; 
-        border-radius: 12px; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
-        max-width: 400px; 
-        width: 90%;
+      * {
+        box-sizing: border-box;
       }
-      h1 { color: #202124; font-size: 24px; margin-top: 0; }
-      p { color: #5f6368; margin-bottom: 30px; line-height: 1.5; font-size: 16px; }
-      button { 
-        background-color: #1a73e8; 
-        color: white; 
-        border: none; 
-        padding: 14px 28px; 
-        font-size: 16px; 
-        font-weight: bold;
-        border-radius: 6px; 
-        cursor: pointer; 
-        transition: background 0.3s;
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background-color: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        margin: 0;
+        padding: 24px 16px;
+        display: flex;
+        justify-content: center;
+      }
+      .container {
+        background: #fff;
+        max-width: 620px;
         width: 100%;
+        border-radius: 12px;
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.04),
+          0 8px 24px rgba(0, 0, 0, 0.06);
+        padding: 32px;
       }
-      button:hover { background-color: #1557b0; }
-      button:disabled { background-color: #dadce0; color: #80868b; cursor: not-allowed; }
+
+      /* Header */
+      h1 {
+        color: var(--primary);
+        font-size: 26px;
+        letter-spacing: 0.02em;
+        margin: 0 0 4px;
+      }
+      .subtitle {
+        font-size: 15px;
+        color: var(--muted);
+        margin: 0 0 16px;
+      }
+      .meta {
+        display: inline-block;
+        font-size: 13px;
+        color: var(--primary);
+        background: #eaf2f8;
+        border-radius: 999px;
+        padding: 4px 12px;
+        margin-bottom: 28px;
+      }
+
+      /* Collapsible sections */
+      .accordion-list {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .accordion-item + .accordion-item {
+        border-top: 1px solid var(--border);
+      }
+      .accordion {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        margin: 0;
+        padding: 15px 18px;
+        background: #fff;
+        border: none;
+        border-radius: 0;
+        text-align: left;
+        font: inherit;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .accordion:hover {
+        background: var(--hover);
+      }
+      .accordion:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: -2px;
+      }
+      .accordion[aria-expanded="true"] {
+        background: var(--hover);
+      }
+      .accordion::after {
+        content: "";
+        flex: none;
+        width: 8px;
+        height: 8px;
+        margin-right: 4px;
+        border-right: 2px solid var(--muted);
+        border-bottom: 2px solid var(--muted);
+        transform: translateY(-2px) rotate(45deg);
+        transition: transform 0.2s ease;
+      }
+      .accordion[aria-expanded="true"]::after {
+        transform: translateY(2px) rotate(-135deg);
+      }
+
+      .panel {
+        max-height: 0;
+        overflow: hidden;
+        background: var(--hover);
+        transition: max-height 0.25s ease-out;
+      }
+      .panel-inner {
+        padding: 0 18px 18px;
+        font-size: 15px;
+        color: #374151;
+      }
+      .panel-inner p,
+      .panel-inner ul {
+        margin: 0;
+      }
+      .panel-inner ul {
+        padding-left: 20px;
+      }
+      .panel-inner li + li {
+        margin-top: 6px;
+      }
+      .panel-inner a {
+        color: var(--primary);
+      }
+
+      /* Start section */
+      .action-section {
+        margin-top: 28px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        text-align: center;
+      }
+      .action-section p {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 16px 0 0;
+      }
+      button#startButton {
+        background-color: var(--primary);
+        color: #fff;
+        border: none;
+        padding: 16px 32px;
+        font-size: 17px;
+        font-weight: 700;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: background 0.2s;
+        width: 100%;
+        max-width: 320px;
+      }
+      button#startButton:hover {
+        background-color: var(--primary-dark);
+      }
+      button#startButton:focus-visible {
+        outline: 2px solid var(--primary-dark);
+        outline-offset: 3px;
+      }
+      button#startButton:disabled {
+        background-color: #cbd5e1;
+        cursor: not-allowed;
+      }
+
+      @media (max-width: 480px) {
+        .container {
+          padding: 24px 20px;
+        }
+        h1 {
+          font-size: 22px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Welcome to the Survey</h1>
-      <p>Thank you for participating. Click the button below when you have about 5 minutes to begin.</p>
-      
-      <!-- The button the user clicks -->
-      <button id="startButton" onclick="startSurvey()">Start Survey</button>
+      <h1>VERDICT Study</h1>
+      <p class="meta">Estimated time: 10 minutes</p>
+
+      <div class="accordion-list">
+        <div class="accordion-item">
+          <button class="accordion" type="button" aria-expanded="false">
+            Participation Requirements
+          </button>
+          <div class="panel">
+            <div class="panel-inner">
+              <p>Radiology residents and radiologists worldwide.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion" type="button" aria-expanded="false">
+            Purpose and Procedure
+          </button>
+          <div class="panel">
+            <div class="panel-inner">
+              <p>
+                This study examines how radiologists reach diagnostic and
+                reporting decisions across clinical settings. You will read
+                three short hypothetical scenarios and indicate how you would
+                report each. There are no right or wrong answers.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion" type="button" aria-expanded="false">
+            Privacy and Anonymity
+          </button>
+          <div class="panel">
+            <div class="panel-inner">
+              <p>
+                Participation is voluntary, fully anonymous, and can be
+                withdrawn at any time. No identifying information is collected,
+                and the data is used solely for statistical and academic
+                purposes.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion" type="button" aria-expanded="false">
+            Contact
+          </button>
+          <div class="panel">
+            <div class="panel-inner">
+              <p>
+                Dr. Su Hwan Kim, MSc<br />
+                Department of Diagnostic and Interventional Radiology<br />
+                TUM University Hospital<br />
+                <a href="mailto:suhwan.kim@tum.de">suhwan.kim@tum.de</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-section">
+        <button id="startButton" type="button" onclick="startSurvey()">
+          Start Study
+        </button>
+      </div>
     </div>
-    
+
     <script>
+      // Accordion logic
+      var accordions = document.querySelectorAll(".accordion");
+
+      Array.prototype.forEach.call(accordions, function (btn) {
+        btn.addEventListener("click", function () {
+          var panel = btn.nextElementSibling;
+          var isOpen = btn.getAttribute("aria-expanded") === "true";
+
+          btn.setAttribute("aria-expanded", isOpen ? "false" : "true");
+          panel.style.maxHeight = isOpen ? null : panel.scrollHeight + "px";
+        });
+      });
+
+      // Keep open panels correctly sized when the layout reflows
+      window.addEventListener("resize", function () {
+        Array.prototype.forEach.call(accordions, function (btn) {
+          if (btn.getAttribute("aria-expanded") === "true") {
+            var panel = btn.nextElementSibling;
+            panel.style.maxHeight = panel.scrollHeight + "px";
+          }
+        });
+      });
+
+      // Router logic
       function startSurvey() {
-        var btn = document.getElementById('startButton');
-        
-        // Disable button to prevent double-clicks and show loading state
+        var btn = document.getElementById("startButton");
+
+        // Disable button to prevent double-clicks
         btn.disabled = true;
-        btn.innerText = 'Generating your secure link...';
-        
-        // This quietly asks the Google script to allocate them and get the URL
+        btn.innerText = "Assigning study group...";
+
+        // Call the backend Apps Script function
         google.script.run
-          .withSuccessHandler(function(url) {
+          .withSuccessHandler(function (url) {
             if (url === "ERROR") {
-              alert("Something went wrong. Please refresh the page and try again.");
+              alert("Server busy. Please refresh the page and try again.");
               btn.disabled = false;
-              btn.innerText = 'Start Survey';
+              btn.innerText = "Start Study";
             } else {
-              // Instantly redirect them to their allocated form cleanly
               window.top.location.href = url;
             }
           })
-          .withFailureHandler(function(err) {
-            alert("Connection failed. Please check your internet and try again.");
+          .withFailureHandler(function (err) {
+            alert(
+              "Connection failed. Please check your internet and try again.",
+            );
             btn.disabled = false;
-            btn.innerText = 'Start Survey';
+            btn.innerText = "Start Study";
           })
-          .allocateUser(); // Triggers the backend function
+          .allocateUser();
       }
     </script>
   </body>
