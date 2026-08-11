@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -11,78 +12,68 @@
         height: 100%;
         margin: 0;
       }
-      body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-        color: #3c4043;
-        background: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 24px;
-      }
-      .box {
-        max-width: 440px;
-      }
-      h1 {
-        font-size: 19px;
-        font-weight: 500;
-        color: #202124;
-        margin: 0 0 8px;
-      }
-      p {
-        font-size: 14px;
-        line-height: 1.6;
-        color: #5f6368;
-        margin: 0 0 20px;
-      }
-      .spinner {
-        width: 26px;
-        height: 26px;
-        margin: 0 auto 22px;
-        border: 3px solid #ececec;
-        border-top-color: #673ab7;
-        border-radius: 50%;
-        animation: spin 0.9s linear infinite;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      a.btn {
-        display: inline-block;
-        background: #673ab7;
-        color: #fff;
-        text-decoration: none;
-        font-size: 15px;
-        padding: 12px 28px;
-        border-radius: 4px;
-      }
-      a.btn:hover {
-        background: #5e35b1;
-      }
-      .hidden {
-        display: none;
-      }
-      .err {
-        color: #c5221f;
-      }
-      #diag {
-        margin-top: 18px;
-        font-size: 12px;
-        color: #80868b;
-        text-align: left;
-        white-space: pre-wrap;
-        word-break: break-all;
-        background: #f8f9fa;
-        border: 1px solid #e8eaed;
-        border-radius: 4px;
-        padding: 10px;
-      }
-    </style>
+
+```
+  body {
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    color: #3c4043;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .box {
+    max-width: 440px;
+  }
+
+  .spinner {
+    width: 24px;
+    height: 24px;
+    margin: 0 auto 18px;
+    border: 3px solid #ececec;
+    border-top-color: #673ab7;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #5f6368;
+    margin: 0;
+  }
+
+  .error {
+    color: #c5221f;
+  }
+
+  #debug {
+    display: none;
+    margin-top: 16px;
+    padding: 10px;
+    background: #f8f9fa;
+    border: 1px solid #e8eaed;
+    border-radius: 4px;
+    text-align: left;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+</style>
+```
+
   </head>
+
   <body>
     <div class="box">
       <div id="loading">
@@ -90,211 +81,287 @@
         <p>Preparing the questionnaire…</p>
       </div>
 
-      <div id="manual" class="hidden">
-        <h1>VERDICT Study</h1>
-        <p>Estimated completion time: 10 minutes</p>
-        <a id="go" class="btn" href="#">Continue to the questionnaire</a>
-      </div>
+```
+  <div id="error" style="display: none">
+    <p class="error">
+      Sorry — the study could not be started.<br />
+      Please reload the page or contact
+      <a href="mailto:suhwan.kim@tum.de">suhwan.kim@tum.de</a>.
+    </p>
+    <div id="debug"></div>
+  </div>
+</div>
 
-      <div id="failed" class="hidden">
-        <h1>The study could not be started</h1>
-        <p class="err">
-          Please try reloading this page. If the problem persists, contact
-          <a href="mailto:suhwan.kim@tum.de">suhwan.kim@tum.de</a>.
-        </p>
-        <div id="diag" class="hidden"></div>
-      </div>
-    </div>
+<script>
+  (function () {
+    "use strict";
 
-    <script>
-      (function () {
-        "use strict";
+    /*
+     * ---------------------------------------------------------------
+     * CONFIG
+     * ---------------------------------------------------------------
+     */
 
-        /* ---------------------------------------------------------------
-         * CONFIG — your deployed Apps Script web-app URL.
-         * Must end in /exec, with no query string.
-         * ------------------------------------------------------------- */
-        var ENDPOINT =
-          "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
+    var ENDPOINT =
+      "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
 
-        /* Must match CONFIG.STICKY_DAYS in the Apps Script.
-           0 = a browser keeps its assignment indefinitely. */
-        var STICKY_DAYS = 0;
+    var STICKY_DAYS = 0;
+    var TIMEOUT_MS = 10000;
+    var KEY = "verdict_alloc";
 
-        /* How long to wait for the allocation before giving up on JSONP
-           and handing over to the Apps Script page instead. */
-        var TIMEOUT_MS = 8000;
+    /*
+     * ?src=xxx can be appended to the public recruitment link.
+     * ?debug=1 shows diagnostic information if allocation fails.
+     */
 
-        var STICKY_MS = STICKY_DAYS * 24 * 60 * 60 * 1000;
-        var KEY = "verdict_alloc";
-        var done = false;
-        var lastFetchError = "n/a";
+    function param(name) {
+      var m = new RegExp("[?&]" + name + "=([^&#]*)").exec(
+        window.location.search
+      );
 
-        function param(name) {
-          var m = new RegExp("[?&]" + name + "=([^&#]*)").exec(
-            window.location.search,
-          );
-          return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+      return m
+        ? decodeURIComponent(m[1].replace(/\+/g, " "))
+        : "";
+    }
+
+    var src = param("src");
+    var DEBUG = param("debug") === "1";
+
+    /*
+     * ---------------------------------------------------------------
+     * EXISTING ASSIGNMENT
+     * ---------------------------------------------------------------
+     */
+
+    var STICKY_MS =
+      STICKY_DAYS * 24 * 60 * 60 * 1000;
+
+    var storedForm = "";
+    var storedCode = "";
+
+    try {
+      var raw = localStorage.getItem(KEY);
+
+      if (raw) {
+        var o = JSON.parse(raw);
+
+        if (
+          o &&
+          o.f &&
+          o.c &&
+          (
+            STICKY_MS === 0 ||
+            Date.now() - o.t < STICKY_MS
+          )
+        ) {
+          storedForm = o.f;
+          storedCode = o.c;
         }
+      }
+    } catch (e) {
+      /* localStorage is optional */
+    }
 
-        /* ?debug=1 shows what went wrong instead of silently falling back. */
-        var DEBUG = param("debug") === "1";
-        var src = param("src");
+    /*
+     * ---------------------------------------------------------------
+     * PARTICIPATION CODE
+     * ---------------------------------------------------------------
+     */
 
-        function show(id) {
-          ["loading", "manual", "failed"].forEach(function (k) {
-            document.getElementById(k).className = k === id ? "" : "hidden";
-          });
-        }
+    var ALPHABET =
+      "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
-        /* Last resort: hand the participant to the Apps Script page, which
-           allocates and redirects on its own. Shows Google's grey banner and
-           needs one click, but it works — better than an error screen. */
-        function fallback(reason) {
-          if (done) return;
-          done = true;
+    function makeCode() {
+      var s = "";
 
-          if (DEBUG) {
-            show("failed");
-            var d = document.getElementById("diag");
-            d.className = "";
-            d.textContent =
-              "Diagnostic (?debug=1)\n\n" +
-              "reason:   " + reason + "\n" +
-              "origin:   " + window.location.origin + "\n" +
-              "protocol: " + window.location.protocol + "\n" +
-              "storage:  " + storageState + "\n" +
-              "endpoint: " + ENDPOINT;
-            return;
-          }
+      for (var i = 0; i < 8; i++) {
+        s += ALPHABET.charAt(
+          Math.floor(Math.random() * ALPHABET.length)
+        );
+      }
 
-          window.location.replace(
-            ENDPOINT + (src ? "?src=" + encodeURIComponent(src) : ""),
-          );
-        }
+      return s;
+    }
 
-        /* Previous assignment for this browser, if still valid. */
-        var stored = { f: "", c: "" };
-        var storageState = "ok";
+    function persist(form, code) {
+      try {
+        localStorage.setItem(
+          KEY,
+          JSON.stringify({
+            f: form,
+            c: code,
+            t: Date.now()
+          })
+        );
+      } catch (e) {
+        /* non-fatal */
+      }
+    }
+
+    /*
+     * Generate the code BEFORE contacting Apps Script.
+     *
+     * This means that if the network request is repeated,
+     * Apps Script receives the same code and therefore returns
+     * the same allocation rather than consuming another slot.
+     */
+
+    if (!storedCode) {
+      storedCode = makeCode();
+      persist("", storedCode);
+    }
+
+    /*
+     * ---------------------------------------------------------------
+     * ERROR HANDLING
+     * ---------------------------------------------------------------
+     */
+
+    var finished = false;
+    var timeoutId;
+
+    function fail(reason) {
+      if (finished) return;
+
+      finished = true;
+      clearTimeout(timeoutId);
+
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("error").style.display = "block";
+
+      if (DEBUG) {
+        var debug = document.getElementById("debug");
+        debug.style.display = "block";
+
+        debug.textContent =
+          "Diagnostic information\n\n" +
+          "Reason: " + reason + "\n" +
+          "Endpoint: " + ENDPOINT + "\n" +
+          "Source: " + src + "\n" +
+          "Stored form: " + storedForm + "\n" +
+          "Stored code: " + storedCode;
+      }
+    }
+
+    /*
+     * ---------------------------------------------------------------
+     * SUCCESS
+     * ---------------------------------------------------------------
+     */
+
+    function succeed(res) {
+      if (finished) return;
+
+      if (!res || res.error || !res.url) {
+        fail(
+          "Invalid server response: " +
+          JSON.stringify(res)
+        );
+        return;
+      }
+
+      finished = true;
+      clearTimeout(timeoutId);
+
+      /*
+       * Save the assignment before redirecting.
+       */
+      persist(res.form, res.code);
+
+      /*
+       * IMPORTANT:
+       *
+       * We redirect directly from GitHub Pages to the Google Form.
+       *
+       * The Apps Script /exec page is NEVER opened.
+       */
+      window.location.replace(res.url);
+    }
+
+    /*
+     * ---------------------------------------------------------------
+     * JSONP
+     * ---------------------------------------------------------------
+     *
+     * We deliberately use JSONP rather than fetch().
+     *
+     * Google Apps Script web apps do not provide reliable CORS
+     * behaviour for cross-origin fetch() requests. A script tag,
+     * however, is allowed to load cross-origin JavaScript.
+     */
+
+    var callbackName =
+      "verdictCallback_" +
+      Math.floor(Math.random() * 1000000000);
+
+    window[callbackName] = function (res) {
+      try {
+        succeed(res);
+      } finally {
+        /*
+         * Remove the global callback after use.
+         */
         try {
-          var raw = localStorage.getItem(KEY);
-          if (raw) {
-            var o = JSON.parse(raw);
-            if (
-              o &&
-              o.f &&
-              o.c &&
-              (STICKY_MS === 0 || Date.now() - o.t < STICKY_MS)
-            ) {
-              stored = { f: o.f, c: o.c };
-            }
-          }
+          delete window[callbackName];
         } catch (e) {
-          storageState = "unavailable (" + e.name + ")";
+          window[callbackName] = undefined;
         }
+      }
+    };
 
-        /* The browser owns its code and persists it BEFORE calling the
-           server. The server returns the same form for a code it has seen
-           before, so a retry after a blocked request can never consume a
-           second slot from the randomisation block. */
-        var ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
-        function makeCode() {
-          var s = "";
-          for (var i = 0; i < 8; i++) {
-            s += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
-          }
-          return s;
-        }
-        function persist(f, c) {
-          try {
-            localStorage.setItem(
-              KEY,
-              JSON.stringify({ f: f, c: c, t: Date.now() }),
-            );
-          } catch (e) {
-            /* non-fatal */
-          }
-        }
-        if (!stored.c) {
-          stored.c = makeCode();
-          persist("", stored.c);
-        }
+    /*
+     * Build the Apps Script JSONP request.
+     */
 
-        function succeed(res) {
-          if (done) return;
-          if (!res || res.error || !res.url) {
-            fallback(
-              "server replied without a usable url: " + JSON.stringify(res),
-            );
-            return;
-          }
-          done = true;
-          persist(res.form, res.code);
-          document.getElementById("go").href = res.url;
+    var query =
+      ENDPOINT +
+      "?callback=" +
+      encodeURIComponent(callbackName) +
+      "&src=" +
+      encodeURIComponent(src) +
+      "&f=" +
+      encodeURIComponent(storedForm) +
+      "&c=" +
+      encodeURIComponent(storedCode) +
+      "&_=" +
+      Date.now();
 
-          /* An ordinary page is not sandboxed, so this needs no user gesture.
-             replace() keeps this page out of back-button history, so "back"
-             from the form does not trigger a second allocation. */
-          window.location.replace(res.url);
-          setTimeout(function () {
-            show("manual");
-          }, 2500);
-        }
+    /*
+     * Create a script tag.
+     *
+     * Apps Script returns:
+     *
+     * verdictCallback_123456789({
+     *   form: "B",
+     *   code: "K7QM2XPD",
+     *   url: "https://docs.google.com/forms/..."
+     * });
+     *
+     * The callback then redirects immediately to the form.
+     */
 
-        if (ENDPOINT.indexOf("PASTE_") === 0) {
-          fallback("ENDPOINT not configured");
-          return;
-        }
+    var script = document.createElement("script");
 
-        function query(extra) {
-          return (
-            ENDPOINT + "?" + extra +
-            "&src=" + encodeURIComponent(src) +
-            "&f=" + encodeURIComponent(stored.f) +
-            "&c=" + encodeURIComponent(stored.c) +
-            "&_=" + Date.now()
-          );
-        }
+    script.src = query;
+    script.async = true;
 
-        /* Backup path: JSONP via a script tag. Newer Chrome often refuses
-           these cross-origin (Opaque Response Blocking), which is why it is
-           second rather than first. */
-        function tryJsonp() {
-          if (done) return;
-          var cbName = "verdictCb" + Math.floor(Math.random() * 1e9);
-          window[cbName] = succeed;
-          var s = document.createElement("script");
-          s.src = query("callback=" + cbName);
-          s.onerror = function () {
-            fallback("both fetch and script-tag requests failed");
-          };
-          document.head.appendChild(s);
-        }
+    script.onerror = function () {
+      fail("JSONP request failed");
+    };
 
-        /* Primary path: a plain cross-origin GET. */
-        if (window.fetch) {
-          fetch(query("api=1"), { method: "GET", credentials: "omit" })
-            .then(function (r) {
-              if (!r.ok) throw new Error("HTTP " + r.status);
-              return r.json();
-            })
-            .then(succeed)
-            .catch(function (err) {
-              lastFetchError = err && err.message ? err.message : String(err);
-              tryJsonp();
-            });
-        } else {
-          lastFetchError = "fetch unavailable";
-          tryJsonp();
-        }
+    document.head.appendChild(script);
 
-        setTimeout(function () {
-          fallback(
-            "no response within " + TIMEOUT_MS + " ms (fetch: " +
-            lastFetchError + ")",
-          );
-        }, TIMEOUT_MS);
-      })();
-    </script>
+    /*
+     * If Apps Script never responds, don't leave the participant
+     * staring at the loading screen forever.
+     */
+
+    timeoutId = setTimeout(function () {
+      fail("No response from allocation server within " + TIMEOUT_MS + " ms");
+    }, TIMEOUT_MS);
+  })();
+</script>
+```
+
   </body>
 </html>
