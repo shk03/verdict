@@ -23,7 +23,7 @@
         padding: 24px;
       }
       .box {
-        max-width: 420px;
+        max-width: 440px;
       }
       h1 {
         font-size: 19px;
@@ -69,6 +69,18 @@
       .err {
         color: #c5221f;
       }
+      #diag {
+        margin-top: 18px;
+        font-size: 12px;
+        color: #80868b;
+        text-align: left;
+        white-space: pre-wrap;
+        word-break: break-all;
+        background: #f8f9fa;
+        border: 1px solid #e8eaed;
+        border-radius: 4px;
+        padding: 10px;
+      }
     </style>
   </head>
   <body>
@@ -90,6 +102,7 @@
           Please try reloading this page. If the problem persists, contact
           <a href="mailto:suhwan.kim@tum.de">suhwan.kim@tum.de</a>.
         </p>
+        <div id="diag" class="hidden"></div>
       </div>
     </div>
 
@@ -98,27 +111,24 @@
         "use strict";
 
         /* ---------------------------------------------------------------
-         * CONFIG — set this to your deployed Apps Script web-app URL.
-         * It must end in /exec, with no query string.
+         * CONFIG — your deployed Apps Script web-app URL.
+         * Must end in /exec, with no query string.
          * ------------------------------------------------------------- */
         var ENDPOINT =
           "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
 
         /* Must match CONFIG.STICKY_DAYS in the Apps Script.
-     0 = a browser keeps its assignment indefinitely. */
+           0 = a browser keeps its assignment indefinitely. */
         var STICKY_DAYS = 0;
+
+        /* How long to wait for the allocation before giving up on JSONP
+           and handing over to the Apps Script page instead. */
+        var TIMEOUT_MS = 8000;
 
         var STICKY_MS = STICKY_DAYS * 24 * 60 * 60 * 1000;
         var KEY = "verdict_alloc";
+        var done = false;
 
-        function show(id) {
-          ["loading", "manual", "failed"].forEach(function (k) {
-            document.getElementById(k).className = k === id ? "" : "hidden";
-          });
-        }
-
-        /* Recruitment-channel tag: index.html?src=esr_mailing is passed through
-     to the allocation log so enrolment can be broken down by channel. */
         function param(name) {
           var m = new RegExp("[?&]" + name + "=([^&#]*)").exec(
             window.location.search,
@@ -126,8 +136,45 @@
           return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
         }
 
+        /* ?debug=1 shows what went wrong instead of silently falling back. */
+        var DEBUG = param("debug") === "1";
+        var src = param("src");
+
+        function show(id) {
+          ["loading", "manual", "failed"].forEach(function (k) {
+            document.getElementById(k).className = k === id ? "" : "hidden";
+          });
+        }
+
+        /* Last resort: hand the participant to the Apps Script page, which
+           allocates and redirects on its own. Shows Google's grey banner and
+           needs one click, but it works — better than an error screen. */
+        function fallback(reason) {
+          if (done) return;
+          done = true;
+
+          if (DEBUG) {
+            show("failed");
+            var d = document.getElementById("diag");
+            d.className = "";
+            d.textContent =
+              "Diagnostic (?debug=1)\n\n" +
+              "reason:   " + reason + "\n" +
+              "origin:   " + window.location.origin + "\n" +
+              "protocol: " + window.location.protocol + "\n" +
+              "storage:  " + storageState + "\n" +
+              "endpoint: " + ENDPOINT;
+            return;
+          }
+
+          window.location.replace(
+            ENDPOINT + (src ? "?src=" + encodeURIComponent(src) : ""),
+          );
+        }
+
         /* Previous assignment for this browser, if still valid. */
         var stored = { f: "", c: "" };
+        var storageState = "ok";
         try {
           var raw = localStorage.getItem(KEY);
           if (raw) {
@@ -142,82 +189,64 @@
             }
           }
         } catch (e) {
-          /* private mode or storage disabled — allocate afresh */
+          storageState = "unavailable (" + e.name + ")";
         }
-
-        var done = false;
 
         var cbName = "verdictCb" + Math.floor(Math.random() * 1e9);
         window[cbName] = function (res) {
           if (done) return;
-          done = true;
 
           if (!res || res.error || !res.url) {
-            show("failed");
+            fallback("server replied without a usable url: " + JSON.stringify(res));
             return;
           }
+          done = true;
 
           try {
             localStorage.setItem(
               KEY,
-              JSON.stringify({
-                f: res.form,
-                c: res.code,
-                t: Date.now(),
-              }),
+              JSON.stringify({ f: res.form, c: res.code, t: Date.now() }),
             );
           } catch (e) {
             /* non-fatal */
           }
 
-          /* A normal page is not sandboxed, so this needs no user gesture.
-       replace() keeps the landing page out of the back-button history,
-       so "back" from the form does not trigger a second allocation. */
           document.getElementById("go").href = res.url;
+
+          /* An ordinary page is not sandboxed, so this needs no user gesture.
+             replace() keeps this page out of back-button history, so "back"
+             from the form does not trigger a second allocation. */
           window.location.replace(res.url);
 
-          /* If the browser blocks the automatic navigation for any reason,
-       offer the link explicitly a moment later. */
+          /* If navigation is blocked for any reason, offer the link. */
           setTimeout(function () {
             show("manual");
           }, 2500);
         };
 
         if (ENDPOINT.indexOf("PASTE_") === 0) {
-          show("failed");
+          fallback("ENDPOINT not configured");
           return;
         }
 
         var url =
           ENDPOINT +
-          "?callback=" +
-          cbName +
-          "&src=" +
-          encodeURIComponent(param("src")) +
-          "&f=" +
-          encodeURIComponent(stored.f) +
-          "&c=" +
-          encodeURIComponent(stored.c) +
-          "&_=" +
-          Date.now();
+          "?callback=" + cbName +
+          "&src=" + encodeURIComponent(src) +
+          "&f=" + encodeURIComponent(stored.f) +
+          "&c=" + encodeURIComponent(stored.c) +
+          "&_=" + Date.now();
 
         var s = document.createElement("script");
         s.src = url;
         s.onerror = function () {
-          if (!done) {
-            done = true;
-            show("failed");
-          }
+          fallback("script tag failed to load (blocked, offline, or CORB)");
         };
         document.head.appendChild(s);
 
-        /* Network stall guard. */
         setTimeout(function () {
-          if (!done) {
-            done = true;
-            show("failed");
-          }
-        }, 15000);
+          fallback("no response within " + TIMEOUT_MS + " ms");
+        }, TIMEOUT_MS);
       })();
     </script>
   </body>
