@@ -128,6 +128,7 @@
         var STICKY_MS = STICKY_DAYS * 24 * 60 * 60 * 1000;
         var KEY = "verdict_alloc";
         var done = false;
+        var lastFetchError = "n/a";
 
         function param(name) {
           var m = new RegExp("[?&]" + name + "=([^&#]*)").exec(
@@ -192,60 +193,106 @@
           storageState = "unavailable (" + e.name + ")";
         }
 
-        var cbName = "verdictCb" + Math.floor(Math.random() * 1e9);
-        window[cbName] = function (res) {
-          if (done) return;
-
-          if (!res || res.error || !res.url) {
-            fallback("server replied without a usable url: " + JSON.stringify(res));
-            return;
+        /* The browser owns its code and persists it BEFORE calling the
+           server. The server returns the same form for a code it has seen
+           before, so a retry after a blocked request can never consume a
+           second slot from the randomisation block. */
+        var ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+        function makeCode() {
+          var s = "";
+          for (var i = 0; i < 8; i++) {
+            s += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
           }
-          done = true;
-
+          return s;
+        }
+        function persist(f, c) {
           try {
             localStorage.setItem(
               KEY,
-              JSON.stringify({ f: res.form, c: res.code, t: Date.now() }),
+              JSON.stringify({ f: f, c: c, t: Date.now() }),
             );
           } catch (e) {
             /* non-fatal */
           }
+        }
+        if (!stored.c) {
+          stored.c = makeCode();
+          persist("", stored.c);
+        }
 
+        function succeed(res) {
+          if (done) return;
+          if (!res || res.error || !res.url) {
+            fallback(
+              "server replied without a usable url: " + JSON.stringify(res),
+            );
+            return;
+          }
+          done = true;
+          persist(res.form, res.code);
           document.getElementById("go").href = res.url;
 
           /* An ordinary page is not sandboxed, so this needs no user gesture.
              replace() keeps this page out of back-button history, so "back"
              from the form does not trigger a second allocation. */
           window.location.replace(res.url);
-
-          /* If navigation is blocked for any reason, offer the link. */
           setTimeout(function () {
             show("manual");
           }, 2500);
-        };
+        }
 
         if (ENDPOINT.indexOf("PASTE_") === 0) {
           fallback("ENDPOINT not configured");
           return;
         }
 
-        var url =
-          ENDPOINT +
-          "?callback=" + cbName +
-          "&src=" + encodeURIComponent(src) +
-          "&f=" + encodeURIComponent(stored.f) +
-          "&c=" + encodeURIComponent(stored.c) +
-          "&_=" + Date.now();
+        function query(extra) {
+          return (
+            ENDPOINT + "?" + extra +
+            "&src=" + encodeURIComponent(src) +
+            "&f=" + encodeURIComponent(stored.f) +
+            "&c=" + encodeURIComponent(stored.c) +
+            "&_=" + Date.now()
+          );
+        }
 
-        var s = document.createElement("script");
-        s.src = url;
-        s.onerror = function () {
-          fallback("script tag failed to load (blocked, offline, or CORB)");
-        };
-        document.head.appendChild(s);
+        /* Backup path: JSONP via a script tag. Newer Chrome often refuses
+           these cross-origin (Opaque Response Blocking), which is why it is
+           second rather than first. */
+        function tryJsonp() {
+          if (done) return;
+          var cbName = "verdictCb" + Math.floor(Math.random() * 1e9);
+          window[cbName] = succeed;
+          var s = document.createElement("script");
+          s.src = query("callback=" + cbName);
+          s.onerror = function () {
+            fallback("both fetch and script-tag requests failed");
+          };
+          document.head.appendChild(s);
+        }
+
+        /* Primary path: a plain cross-origin GET. */
+        if (window.fetch) {
+          fetch(query("api=1"), { method: "GET", credentials: "omit" })
+            .then(function (r) {
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              return r.json();
+            })
+            .then(succeed)
+            .catch(function (err) {
+              lastFetchError = err && err.message ? err.message : String(err);
+              tryJsonp();
+            });
+        } else {
+          lastFetchError = "fetch unavailable";
+          tryJsonp();
+        }
 
         setTimeout(function () {
-          fallback("no response within " + TIMEOUT_MS + " ms");
+          fallback(
+            "no response within " + TIMEOUT_MS + " ms (fetch: " +
+            lastFetchError + ")",
+          );
         }, TIMEOUT_MS);
       })();
     </script>
