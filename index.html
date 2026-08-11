@@ -261,12 +261,28 @@
       </div>
 
       <div class="action-section">
-        <button id="startButton" type="button" onclick="startSurvey()">
+        <button
+          id="startButton"
+          type="button"
+          onmouseenter="preloadBackend()"
+          onclick="startSurvey()"
+        >
           Start Study
         </button>
       </div>
     </div>
 
+    <script>
+      var isWarmedUp = false;
+      function preloadBackend() {
+        if (isWarmedUp) return;
+        isWarmedUp = true;
+        var GOOGLE_WEB_APP_URL =
+          "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
+        // Fires a silent HEAD/GET request to warm up the server container
+        fetch(GOOGLE_WEB_APP_URL, { mode: "no-cors" });
+      }
+    </script>
     <script>
       // Accordion logic
       var accordions = document.querySelectorAll(".accordion");
