@@ -299,9 +299,8 @@
         btn.disabled = true;
         btn.innerText = "Assigning study group...";
 
-        // 🚨 REPLACE WITH YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW 🚨
         var GOOGLE_WEB_APP_URL =
-          "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
+          "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
 
         fetch(GOOGLE_WEB_APP_URL + "?action=allocate")
           .then(function (response) {
