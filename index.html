@@ -295,14 +295,20 @@
       function startSurvey() {
         var btn = document.getElementById("startButton");
 
-        // Disable button to prevent double-clicks
         btn.disabled = true;
         btn.innerText = "Assigning study group...";
 
+        // 🚨 Make sure this is your REAL Apps Script deployment ID!
         var GOOGLE_WEB_APP_URL =
           "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
 
-        fetch(GOOGLE_WEB_APP_URL + "?action=allocate")
+        // Query string tells GAS to assign and redirect directly
+        var targetUrl = GOOGLE_WEB_APP_URL + "?action=allocate";
+
+        fetch(targetUrl, {
+          method: "GET",
+          redirect: "follow",
+        })
           .then(function (response) {
             return response.json();
           })
@@ -310,17 +316,13 @@
             if (data.status === "success" && data.url) {
               window.top.location.href = data.url;
             } else {
-              alert("Server busy. Please refresh the page and try again.");
-              btn.disabled = false;
-              btn.innerText = "Start Study";
+              throw new Error("Invalid response");
             }
           })
           .catch(function (err) {
-            alert(
-              "Connection failed. Please check your internet and try again.",
-            );
-            btn.disabled = false;
-            btn.innerText = "Start Study";
+            // Fallback: If CORS blocks reading JSON, directly navigate browser to the endpoint
+            // Google Apps Script will handle the assignment and 302 redirect the browser natively!
+            window.location.href = targetUrl + "&redirect=true";
           });
       }
     </script>
