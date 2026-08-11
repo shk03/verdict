@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>VERDICT Study</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        color: #3c4043;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 24px;
+      }
+      .box {
+        max-width: 420px;
+      }
+      h1 {
+        font-size: 19px;
+        font-weight: 500;
+        color: #202124;
+        margin: 0 0 8px;
+      }
+      p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #5f6368;
+        margin: 0 0 20px;
+      }
+      .spinner {
+        width: 26px;
+        height: 26px;
+        margin: 0 auto 22px;
+        border: 3px solid #ececec;
+        border-top-color: #673ab7;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      a.btn {
+        display: inline-block;
+        background: #673ab7;
+        color: #fff;
+        text-decoration: none;
+        font-size: 15px;
+        padding: 12px 28px;
+        border-radius: 4px;
+      }
+      a.btn:hover {
+        background: #5e35b1;
+      }
+      .hidden {
+        display: none;
+      }
+      .err {
+        color: #c5221f;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <div id="loading">
+        <div class="spinner"></div>
+        <p>Preparing the questionnaire…</p>
+      </div>
+
+      <div id="manual" class="hidden">
+        <h1>VERDICT Study</h1>
+        <p>Three short clinical scenarios — approximately 10 minutes.</p>
+        <a id="go" class="btn" href="#">Continue to the questionnaire</a>
+      </div>
+
+      <div id="failed" class="hidden">
+        <h1>The study could not be started</h1>
+        <p class="err">
+          Please try reloading this page. If the problem persists, contact
+          <a href="mailto:suhwan.kim@tum.de">suhwan.kim@tum.de</a>.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        /* ---------------------------------------------------------------
+         * CONFIG — set this to your deployed Apps Script web-app URL.
+         * It must end in /exec, with no query string.
+         * ------------------------------------------------------------- */
+        var ENDPOINT =
+          "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
+
+        /* Must match CONFIG.STICKY_DAYS in the Apps Script.
+     0 = a browser keeps its assignment indefinitely. */
+        var STICKY_DAYS = 0;
+
+        var STICKY_MS = STICKY_DAYS * 24 * 60 * 60 * 1000;
+        var KEY = "verdict_alloc";
+
+        function show(id) {
+          ["loading", "manual", "failed"].forEach(function (k) {
+            document.getElementById(k).className = k === id ? "" : "hidden";
+          });
+        }
+
+        /* Recruitment-channel tag: index.html?src=esr_mailing is passed through
+     to the allocation log so enrolment can be broken down by channel. */
+        function param(name) {
+          var m = new RegExp("[?&]" + name + "=([^&#]*)").exec(
+            window.location.search,
+          );
+          return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+        }
+
+        /* Previous assignment for this browser, if still valid. */
+        var stored = { f: "", c: "" };
+        try {
+          var raw = localStorage.getItem(KEY);
+          if (raw) {
+            var o = JSON.parse(raw);
+            if (
+              o &&
+              o.f &&
+              o.c &&
+              (STICKY_MS === 0 || Date.now() - o.t < STICKY_MS)
+            ) {
+              stored = { f: o.f, c: o.c };
+            }
+          }
+        } catch (e) {
+          /* private mode or storage disabled — allocate afresh */
+        }
+
+        var done = false;
+
+        var cbName = "verdictCb" + Math.floor(Math.random() * 1e9);
+        window[cbName] = function (res) {
+          if (done) return;
+          done = true;
+
+          if (!res || res.error || !res.url) {
+            show("failed");
+            return;
+          }
+
+          try {
+            localStorage.setItem(
+              KEY,
+              JSON.stringify({
+                f: res.form,
+                c: res.code,
+                t: Date.now(),
+              }),
+            );
+          } catch (e) {
+            /* non-fatal */
+          }
+
+          /* A normal page is not sandboxed, so this needs no user gesture.
+       replace() keeps the landing page out of the back-button history,
+       so "back" from the form does not trigger a second allocation. */
+          document.getElementById("go").href = res.url;
+          window.location.replace(res.url);
+
+          /* If the browser blocks the automatic navigation for any reason,
+       offer the link explicitly a moment later. */
+          setTimeout(function () {
+            show("manual");
+          }, 2500);
+        };
+
+        if (ENDPOINT.indexOf("PASTE_") === 0) {
+          show("failed");
+          return;
+        }
+
+        var url =
+          ENDPOINT +
+          "?callback=" +
+          cbName +
+          "&src=" +
+          encodeURIComponent(param("src")) +
+          "&f=" +
+          encodeURIComponent(stored.f) +
+          "&c=" +
+          encodeURIComponent(stored.c) +
+          "&_=" +
+          Date.now();
+
+        var s = document.createElement("script");
+        s.src = url;
+        s.onerror = function () {
+          if (!done) {
+            done = true;
+            show("failed");
+          }
+        };
+        document.head.appendChild(s);
+
+        /* Network stall guard. */
+        setTimeout(function () {
+          if (!done) {
+            done = true;
+            show("failed");
+          }
+        }, 15000);
+      })();
+    </script>
+  </body>
+</html>
