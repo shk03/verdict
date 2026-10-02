@@ -273,14 +273,27 @@
     </div>
 
     <script>
+      var GOOGLE_WEB_APP_URL =
+        "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
+      var STORAGE_KEY = "verdict_allocation";
+      var REQUEST_TIMEOUT_MS = 20000;
+      var MAX_RETRIES = 4;
+
+      // For your own testing: open the page with ?reset to forget
+      // this browser's stored allocation.
+      if (/[?&]reset\b/.test(window.location.search)) {
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      }
+
+      // Warm-up ping. The ?warmup=1 parameter makes the backend return
+      // immediately WITHOUT allocating a form.
       var isWarmedUp = false;
       function preloadBackend() {
         if (isWarmedUp) return;
         isWarmedUp = true;
-        var GOOGLE_WEB_APP_URL =
-          "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
-        // Fires a silent HEAD/GET request to warm up the server container
-        fetch(GOOGLE_WEB_APP_URL, { mode: "no-cors" });
+        fetch(GOOGLE_WEB_APP_URL + "?warmup=1&t=" + Date.now(), {
+          mode: "no-cors"
+        }).catch(function () {});
       }
     </script>
     <script>
@@ -307,40 +320,156 @@
         });
       });
 
-      // Router logic (API version for GitHub Pages)
-      function startSurvey() {
+      // ---- Allocation ----
+
+      var allocationInProgress = false;
+
+      function getSavedAllocation() {
+        try {
+          var saved = localStorage.getItem(STORAGE_KEY);
+          return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function saveAllocation(data) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {}
+      }
+
+      function allocationSetupError(message) {
+        var error = new Error(message);
+        error.isAllocationSetupError = true;
+        return error;
+      }
+
+      // Called under the browser lock. Retain this ID even if the request fails.
+      function getOrCreateRequestId(saved) {
+        if (saved && /^[a-f0-9]{32}$/.test(saved.requestId)) {
+          return saved.requestId;
+        }
+
+        var bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        var requestId = Array.prototype.map.call(bytes, function (byte) {
+          return ("0" + byte.toString(16)).slice(-2);
+        }).join("");
+
+        try {
+          var pending = JSON.stringify({ requestId: requestId });
+          localStorage.setItem(STORAGE_KEY, pending);
+          if (localStorage.getItem(STORAGE_KEY) !== pending) {
+            throw new Error("The pending allocation could not be saved.");
+          }
+        } catch (error) {
+          // Do not allocate without an ID that another tab/reload can recover.
+          throw allocationSetupError(
+            "Please allow this site to save browser data, then click 'Start Study' again."
+          );
+        }
+        return requestId;
+      }
+
+      function resetButton() {
         var btn = document.getElementById("startButton");
+        btn.disabled = false;
+        btn.innerText = "Start Study";
+      }
 
-        btn.disabled = true;
-        btn.innerText = "Redirecting...";
+      function wait(ms) {
+        return new Promise(function (resolve) {
+          setTimeout(resolve, ms);
+        });
+      }
 
-        var GOOGLE_WEB_APP_URL =
-          "https://script.google.com/macros/s/AKfycbyxrsl6jS6HVkZcJpxQmZ6FTHvEGQZsqX4nSeosY_h6jZOEowBu5Qw6pE0DPDFtKtyG/exec";
+      // One allocation request, with a timeout, retrying automatically
+      // (with backoff) when the server reports it is busy.
+      function requestAllocation(attempt, requestId) {
+        var controller =
+          typeof AbortController !== "undefined" ? new AbortController() : null;
+        var timer = controller
+          ? setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS)
+          : null;
 
-        // Append timestamp parameter to force browsers not to cache the request
-        var apiUrl = GOOGLE_WEB_APP_URL + "?t=" + new Date().getTime();
-
-        fetch(apiUrl)
+        return fetch(
+          GOOGLE_WEB_APP_URL + "?requestId=" + encodeURIComponent(requestId) + "&t=" + Date.now(),
+          controller ? { signal: controller.signal } : {}
+        )
           .then(function (response) {
+            if (timer) clearTimeout(timer);
             return response.json();
           })
           .then(function (data) {
+            if (data.status === "retry" && attempt < MAX_RETRIES) {
+              var delay = 500 * Math.pow(2, attempt) + Math.random() * 300;
+              return wait(delay).then(function () {
+                return requestAllocation(attempt + 1, requestId);
+              });
+            }
+            return data;
+          });
+      }
+
+      function startSurvey() {
+        if (allocationInProgress) return;
+        allocationInProgress = true;
+
+        var btn = document.getElementById("startButton");
+        btn.disabled = true;
+        btn.innerText = "Loading study...";
+
+        return Promise.resolve()
+          .then(function () {
+            if (!navigator.locks || !navigator.locks.request) {
+              throw allocationSetupError(
+                "Please open the study's HTTPS link in an up-to-date browser."
+              );
+            }
+
+            // A second tab waits, then re-reads the allocation saved by the first.
+            return navigator.locks.request(STORAGE_KEY, function () {
+              var saved = getSavedAllocation();
+              if (saved && saved.url) {
+                return { status: "success", url: saved.url };
+              }
+
+              var requestId = getOrCreateRequestId(saved);
+              return requestAllocation(0, requestId).then(function (data) {
+                if (data.status === "success" && data.url) {
+                  if (data.requestId !== requestId) {
+                    throw new Error("The allocation response has a different request ID.");
+                  }
+                  saveAllocation(data);
+                }
+                return data;
+              });
+            });
+          })
+          .then(function (data) {
+            allocationInProgress = false;
             if (data.status === "success" && data.url) {
               window.location.href = data.url;
             } else {
-              alert("Server busy. Please click 'Start Study' again.");
-              btn.disabled = false;
-              btn.innerText = "Start Study";
+              alert("The study server is busy. Please wait a moment and click 'Start Study' again.");
+              resetButton();
             }
           })
-          .catch(function (err) {
-            alert(
-              "Connection timed out. Please check your network and try again.",
-            );
-            btn.disabled = false;
-            btn.innerText = "Start Study";
+          .catch(function (error) {
+            allocationInProgress = false;
+            alert(error && error.isAllocationSetupError
+              ? error.message
+              : "The study server could not be reached. Please check your connection and try again.");
+            resetButton();
           });
       }
+
+      // If the participant comes back with the browser's Back button and
+      // the page is restored from cache, re-enable the button.
+      window.addEventListener("pageshow", function (event) {
+        if (event.persisted) resetButton();
+      });
     </script>
   </body>
 </html>
