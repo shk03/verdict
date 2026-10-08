@@ -273,11 +273,11 @@
 
     <script>
       // ---- Configuration ----
-      // One pre-filled link per arm. REPLACE_ME is swapped for a random ID.
+      // One plain link per arm (no pre-filled fields).
       var FORM_URLS = [
-        "https://docs.google.com/forms/d/e/1FAIpQLSe53d_zNqnn9jtatRzuuMTICL91TLucCSt-z94NUNVTWYxTUA/viewform?usp=pp_url&entry.823836775=REPLACE_ME",
-        "https://docs.google.com/forms/d/e/1FAIpQLScdVp0oDfSk0hzgDPPR242WnRmf7OEeA4fj4LDFxrYZDw_V_A/viewform?usp=pp_url&entry.13822187=REPLACE_ME",
-        "https://docs.google.com/forms/d/e/1FAIpQLSduGbIj74BTmUjZ39_K1fvI8Ewb1intNikynnnXeUIPt68hSg/viewform?usp=pp_url&entry.1076197896=REPLACE_ME"
+        "https://docs.google.com/forms/d/e/1FAIpQLSe53d_zNqnn9jtatRzuuMTICL91TLucCSt-z94NUNVTWYxTUA/viewform",
+        "https://docs.google.com/forms/d/e/1FAIpQLScdVp0oDfSk0hzgDPPR242WnRmf7OEeA4fj4LDFxrYZDw_V_A/viewform",
+        "https://docs.google.com/forms/d/e/1FAIpQLSduGbIj74BTmUjZ39_K1fvI8Ewb1intNikynnnXeUIPt68hSg/viewform"
       ];
       var FORM_NAMES = ["Form A", "Form B", "Form C"];
       var STORAGE_KEY = "verdict_allocation";
@@ -327,29 +327,25 @@
         return Math.floor(Math.random() * n);
       }
 
-      // Random anonymous ID (UUID v4 format).
-      function makeVisitorId() {
-        if (window.crypto && window.crypto.randomUUID) {
-          return window.crypto.randomUUID();
-        }
-        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-          var r = randomIndex(16);
-          return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-        });
+      // Returns the arm stored for this browser, or null if none is
+      // stored or the stored value is not a valid arm.
+      function getSavedArm() {
+        try {
+          var saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+          var arm = saved && saved.arm;
+          if (typeof arm === "number" && arm >= 0 && arm < FORM_URLS.length && arm % 1 === 0) {
+            return arm;
+          }
+        } catch (e) {}
+        return null;
       }
 
-      function getSavedAllocation() {
+      function saveArm(arm) {
         try {
-          var saved = localStorage.getItem(STORAGE_KEY);
-          return saved ? JSON.parse(saved) : null;
-        } catch (e) {
-          return null;
-        }
-      }
-
-      function saveAllocation(allocation) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(allocation));
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({ arm: arm, form: FORM_NAMES[arm] })
+          );
         } catch (e) {}
       }
 
@@ -360,21 +356,14 @@
 
         // A returning participant in this browser goes back to the same
         // form instead of being randomised into another arm.
-        var allocation = getSavedAllocation();
+        var arm = getSavedArm();
 
-        if (!allocation || !allocation.url) {
-          var arm = randomIndex(FORM_URLS.length);
-          var visitorId = makeVisitorId();
-          allocation = {
-            arm: arm,
-            form: FORM_NAMES[arm],
-            visitorId: visitorId,
-            url: FORM_URLS[arm].replace("REPLACE_ME", visitorId)
-          };
-          saveAllocation(allocation);
+        if (arm === null) {
+          arm = randomIndex(FORM_URLS.length);
+          saveArm(arm);
         }
 
-        window.location.href = allocation.url;
+        window.location.href = FORM_URLS[arm];
       }
 
       // Coming back via the Back button: re-enable the button.
