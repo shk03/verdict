@@ -64,6 +64,51 @@
         margin-bottom: 28px;
       }
 
+      /* Language (required before starting) */
+      .lang-field {
+        margin-bottom: 28px;
+      }
+      .lang-field label {
+        display: block;
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .lang-select {
+        width: 100%;
+        -webkit-appearance: none;
+        appearance: none;
+        margin: 0;
+        padding: 12px 40px 12px 18px;
+        font: inherit;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+        /* Same chevron as the accordion headers */
+        background: #fff
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M1.5 4.5 7 10l5.5-5.5' fill='none' stroke='%236b7280' stroke-width='2'/%3E%3C/svg%3E")
+          no-repeat right 20px center;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .lang-select:hover {
+        background-color: var(--hover);
+      }
+      .lang-select:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      /* Placeholder shown until a language is chosen */
+      .lang-select:invalid {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .lang-select option {
+        color: var(--text);
+      }
+
       /* Collapsible sections */
       .accordion-list {
         border: 1px solid var(--border);
@@ -196,28 +241,59 @@
   </head>
   <body>
     <div class="container">
-      <h1>VERDICT Study</h1>
-      <p class="meta">Estimated time: 10 minutes</p>
+      <h1 data-i18n="title">VERDICT Study</h1>
+      <p class="meta" data-i18n="time">Estimated time: 10 minutes</p>
+
+      <div class="lang-field">
+        <label for="langSelect" data-i18n="language">
+          Questionnaire language
+        </label>
+        <select id="langSelect" class="lang-select" required autocomplete="off">
+          <option value="" disabled selected data-i18n="selectPrompt">
+            Please select
+          </option>
+          <option value="de" lang="de">Deutsch</option>
+          <option value="en" lang="en">English</option>
+          <option value="fr" lang="fr">Français</option>
+          <!-- Enable once the translated forms are available:
+          <option value="it" lang="it">Italiano</option>
+          <option value="es" lang="es">Español</option>
+          <option value="nl" lang="nl">Nederlands</option>
+          -->
+        </select>
+      </div>
 
       <div class="accordion-list">
         <div class="accordion-item">
-          <button class="accordion" type="button" aria-expanded="false">
+          <button
+            class="accordion"
+            type="button"
+            aria-expanded="false"
+            data-i18n="reqTitle"
+          >
             Participation Requirements
           </button>
           <div class="panel">
             <div class="panel-inner">
-              <p>Radiology residents and radiologists worldwide.</p>
+              <p data-i18n="reqText">
+                Radiology residents and radiologists worldwide.
+              </p>
             </div>
           </div>
         </div>
 
         <div class="accordion-item">
-          <button class="accordion" type="button" aria-expanded="false">
+          <button
+            class="accordion"
+            type="button"
+            aria-expanded="false"
+            data-i18n="purposeTitle"
+          >
             Purpose and Procedure
           </button>
           <div class="panel">
             <div class="panel-inner">
-              <p>
+              <p data-i18n="purposeText">
                 This study examines how radiologists reach diagnostic and
                 reporting decisions across clinical settings. You will read
                 three short hypothetical scenarios and indicate how you would
@@ -228,12 +304,17 @@
         </div>
 
         <div class="accordion-item">
-          <button class="accordion" type="button" aria-expanded="false">
+          <button
+            class="accordion"
+            type="button"
+            aria-expanded="false"
+            data-i18n="privacyTitle"
+          >
             Privacy and Anonymity
           </button>
           <div class="panel">
             <div class="panel-inner">
-              <p>
+              <p data-i18n="privacyText">
                 Participation is voluntary, fully anonymous, and can be
                 withdrawn at any time. No identifying information is collected,
                 and the data is used solely for statistical and academic
@@ -244,15 +325,22 @@
         </div>
 
         <div class="accordion-item">
-          <button class="accordion" type="button" aria-expanded="false">
+          <button
+            class="accordion"
+            type="button"
+            aria-expanded="false"
+            data-i18n="contactTitle"
+          >
             Contact
           </button>
           <div class="panel">
             <div class="panel-inner">
               <p>
                 PD Dr. med. Su Hwan Kim<br />
-                Department of Diagnostic and Interventional Radiology<br />
-                TUM University Hospital<br />
+                <span data-i18n="department"
+                  >Department of Diagnostic and Interventional Radiology</span
+                ><br />
+                <span data-i18n="hospital">TUM University Hospital</span><br />
                 <a href="mailto:suhwan.kim@tum.de">suhwan.kim@tum.de</a>
               </p>
             </div>
@@ -265,27 +353,49 @@
           id="startButton"
           type="button"
           onclick="startSurvey()"
+          data-i18n="start"
         >
           Start Study
         </button>
+        <p id="langStatus" aria-live="polite"></p>
       </div>
     </div>
 
     <script>
       // ---- Configuration ----
-      // One plain link per arm (no pre-filled fields).
-      var FORM_URLS = [
-        "https://docs.google.com/forms/d/e/1FAIpQLSe53d_zNqnn9jtatRzuuMTICL91TLucCSt-z94NUNVTWYxTUA/viewform",
-        "https://docs.google.com/forms/d/e/1FAIpQLScdVp0oDfSk0hzgDPPR242WnRmf7OEeA4fj4LDFxrYZDw_V_A/viewform",
-        "https://docs.google.com/forms/d/e/1FAIpQLSduGbIj74BTmUjZ39_K1fvI8Ewb1intNikynnnXeUIPt68hSg/viewform"
-      ];
+      // One plain link per arm (no pre-filled fields), per language.
+      // Each list must be in the same order as FORM_NAMES.
+      var FORM_URLS = {
+        en: [
+          "https://docs.google.com/forms/d/e/1FAIpQLSe53d_zNqnn9jtatRzuuMTICL91TLucCSt-z94NUNVTWYxTUA/viewform",
+          "https://docs.google.com/forms/d/e/1FAIpQLScdVp0oDfSk0hzgDPPR242WnRmf7OEeA4fj4LDFxrYZDw_V_A/viewform",
+          "https://docs.google.com/forms/d/e/1FAIpQLSduGbIj74BTmUjZ39_K1fvI8Ewb1intNikynnnXeUIPt68hSg/viewform",
+        ],
+        de: [
+          "https://docs.google.com/forms/d/e/1FAIpQLSeHPEfhoI5BYLYvgPn0GO6_aJXQpZfqZrtNMLuJr1HrV7yIow/viewform",
+          "https://docs.google.com/forms/d/e/1FAIpQLSd6SyUBBbHRDvbWnF5g1lh4baf81-yJAk_dnnv3CNUqiaEk7g/viewform",
+          "https://docs.google.com/forms/d/e/1FAIpQLSda5RAB1pLa0PxFrmlcNtDno7KnsUoQz7ZHYWu7lxjs4Huiuw/viewform",
+        ],
+        fr: [
+          "https://docs.google.com/forms/d/e/1FAIpQLSckbvhWlU1peZiuJO2zDYLz0vMAhb8xjvveHfKwpjXGJFzx8g/viewform",
+          "https://docs.google.com/forms/d/e/1FAIpQLSdu8oWCxJXKYy7ZNSQH31oCwGjVCe351e1l6k4AIsWv9EwiYw/viewform",
+          "https://docs.google.com/forms/d/e/1FAIpQLSfQNTUk3B25rIwr1N3phX913QmHAWQ5MY0d4IwYCpoORRy0fA/viewform",
+        ],
+        // Add once the translated forms are available, then enable the
+        // matching <option> and TRANSLATIONS entry:
+        // it: [],
+        // es: [],
+        // nl: [],
+      };
       var FORM_NAMES = ["Form A", "Form B", "Form C"];
       var STORAGE_KEY = "verdict_allocation";
 
       // For your own testing: open the page with ?reset to forget this
       // browser's stored allocation and be randomised again.
       if (/[?&]reset\b/.test(window.location.search)) {
-        try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (e) {}
       }
 
       // ---- Accordion ----
@@ -302,14 +412,233 @@
       });
 
       // Keep open panels correctly sized when the layout reflows
-      window.addEventListener("resize", function () {
+      function resizeOpenPanels() {
         Array.prototype.forEach.call(accordions, function (btn) {
           if (btn.getAttribute("aria-expanded") === "true") {
             var panel = btn.nextElementSibling;
             panel.style.maxHeight = panel.scrollHeight + "px";
           }
         });
+      }
+      window.addEventListener("resize", resizeOpenPanels);
+
+      // ---- Language ----
+      var LANG_KEY = "verdict_lang";
+      var DEFAULT_LANG = "en";
+      var TRANSLATIONS = {
+        de: {
+          pageTitle: "VERDICT-Studie",
+          title: "VERDICT-Studie",
+          language: "Sprache des Fragebogens",
+          selectPrompt: "Bitte auswählen",
+          langHint:
+            "Bitte wählen Sie die Sprache des Fragebogens aus, um fortzufahren.",
+          langNote: "Der Fragebogen wird auf Deutsch geöffnet.",
+          time: "Geschätzte Dauer: 10 Minuten",
+          reqTitle: "Teilnahmevoraussetzungen",
+          reqText:
+            "Assistenzärztinnen und -ärzte in der Radiologie sowie Radiologinnen und Radiologen weltweit.",
+          purposeTitle: "Ziel und Ablauf",
+          purposeText:
+            "Diese Studie untersucht, wie Radiologinnen und Radiologen in verschiedenen klinischen Kontexten diagnostische Entscheidungen und Entscheidungen zur Befundung treffen. Sie lesen drei kurze hypothetische Szenarien und geben an, wie Sie diese jeweils befunden würden. Es gibt keine richtigen oder falschen Antworten.",
+          privacyTitle: "Datenschutz und Anonymität",
+          privacyText:
+            "Die Teilnahme ist freiwillig, vollständig anonym und kann jederzeit abgebrochen werden. Es werden keine personenbezogenen Daten erhoben, und die Daten werden ausschließlich für statistische und wissenschaftliche Zwecke verwendet.",
+          contactTitle: "Kontakt",
+          department:
+            "Institut für Diagnostische und Interventionelle Radiologie",
+          hospital: "TUM Universitätsklinikum",
+          start: "Studie starten",
+          opening: "Studie wird geöffnet …",
+        },
+        en: {
+          pageTitle: "VERDICT Study",
+          title: "VERDICT Study",
+          language: "Questionnaire language",
+          selectPrompt: "Please select",
+          langHint:
+            "Please select the language of the questionnaire to continue.",
+          langNote: "The questionnaire will open in English.",
+          time: "Estimated time: 10 minutes",
+          reqTitle: "Participation Requirements",
+          reqText: "Radiology residents and radiologists worldwide.",
+          purposeTitle: "Purpose and Procedure",
+          purposeText:
+            "This study examines how radiologists reach diagnostic and reporting decisions across clinical settings. You will read three short hypothetical scenarios and indicate how you would report each. There are no right or wrong answers.",
+          privacyTitle: "Privacy and Anonymity",
+          privacyText:
+            "Participation is voluntary, fully anonymous, and can be withdrawn at any time. No identifying information is collected, and the data is used solely for statistical and academic purposes.",
+          contactTitle: "Contact",
+          department: "Department of Diagnostic and Interventional Radiology",
+          hospital: "TUM University Hospital",
+          start: "Start Study",
+          opening: "Opening study...",
+        },
+        fr: {
+          pageTitle: "Étude VERDICT",
+          title: "Étude VERDICT",
+          language: "Langue du questionnaire",
+          selectPrompt: "Veuillez sélectionner",
+          langHint:
+            "Veuillez choisir la langue du questionnaire pour continuer.",
+          langNote: "Le questionnaire s'ouvrira en français.",
+          time: "Durée estimée : 10 minutes",
+          reqTitle: "Conditions de participation",
+          reqText: "Internes en radiologie et radiologues du monde entier.",
+          purposeTitle: "Objectif et déroulement",
+          purposeText:
+            "Cette étude examine la manière dont les radiologues prennent leurs décisions diagnostiques et rédigent leurs comptes rendus dans différents contextes cliniques. Vous lirez trois courts scénarios hypothétiques et indiquerez comment vous rédigeriez le compte rendu de chacun. Il n'y a pas de bonnes ou de mauvaises réponses.",
+          privacyTitle: "Confidentialité et anonymat",
+          privacyText:
+            "La participation est volontaire, entièrement anonyme et peut être interrompue à tout moment. Aucune information permettant de vous identifier n'est collectée, et les données sont utilisées uniquement à des fins statistiques et académiques.",
+          contactTitle: "Contact",
+          department:
+            "Département de radiologie diagnostique et interventionnelle",
+          hospital: "Hôpital universitaire de la TUM",
+          start: "Commencer l'étude",
+          opening: "Ouverture de l'étude…",
+        },
+        /* Enable once the translated forms are available:
+        it: {
+          pageTitle: "Studio VERDICT",
+          title: "Studio VERDICT",
+          language: "Lingua del questionario",
+          selectPrompt: "Selezionare",
+          langHint: "Selezioni la lingua del questionario per continuare.",
+          langNote: "Il questionario si aprirà in italiano.",
+          time: "Durata stimata: 10 minuti",
+          reqTitle: "Requisiti di partecipazione",
+          reqText:
+            "Medici specializzandi in radiologia e radiologi di tutto il mondo.",
+          purposeTitle: "Scopo e procedura",
+          purposeText:
+            "Questo studio esamina come i radiologi prendono decisioni diagnostiche e di refertazione in diversi contesti clinici. Leggerà tre brevi scenari ipotetici e indicherà come refererebbe ciascuno di essi. Non ci sono risposte giuste o sbagliate.",
+          privacyTitle: "Privacy e anonimato",
+          privacyText:
+            "La partecipazione è volontaria, completamente anonima e può essere interrotta in qualsiasi momento. Non vengono raccolte informazioni identificative e i dati sono utilizzati esclusivamente a fini statistici e accademici.",
+          contactTitle: "Contatti",
+          department:
+            "Dipartimento di Radiologia Diagnostica e Interventistica",
+          hospital: "Ospedale Universitario TUM",
+          start: "Inizia lo studio",
+          opening: "Apertura dello studio…",
+        },
+        es: {
+          pageTitle: "Estudio VERDICT",
+          title: "Estudio VERDICT",
+          language: "Idioma del cuestionario",
+          selectPrompt: "Seleccione",
+          langHint: "Seleccione el idioma del cuestionario para continuar.",
+          langNote: "El cuestionario se abrirá en español.",
+          time: "Tiempo estimado: 10 minutos",
+          reqTitle: "Requisitos de participación",
+          reqText: "Residentes de radiología y radiólogos de todo el mundo.",
+          purposeTitle: "Objetivo y procedimiento",
+          purposeText:
+            "Este estudio examina cómo los radiólogos toman decisiones diagnósticas y de elaboración de informes en distintos contextos clínicos. Leerá tres breves escenarios hipotéticos e indicará cómo informaría cada uno. No hay respuestas correctas ni incorrectas.",
+          privacyTitle: "Privacidad y anonimato",
+          privacyText:
+            "La participación es voluntaria, totalmente anónima y puede retirarse en cualquier momento. No se recopila ninguna información identificativa y los datos se utilizan exclusivamente con fines estadísticos y académicos.",
+          contactTitle: "Contacto",
+          department:
+            "Departamento de Radiología Diagnóstica e Intervencionista",
+          hospital: "Hospital Universitario de la TUM",
+          start: "Iniciar estudio",
+          opening: "Abriendo el estudio…",
+        },
+        nl: {
+          pageTitle: "VERDICT-studie",
+          title: "VERDICT-studie",
+          language: "Taal van de vragenlijst",
+          selectPrompt: "Maak een keuze",
+          langHint: "Kies de taal van de vragenlijst om verder te gaan.",
+          langNote: "De vragenlijst wordt in het Nederlands geopend.",
+          time: "Geschatte duur: 10 minuten",
+          reqTitle: "Voorwaarden voor deelname",
+          reqText: "Radiologen in opleiding en radiologen wereldwijd.",
+          purposeTitle: "Doel en procedure",
+          purposeText:
+            "Deze studie onderzoekt hoe radiologen in verschillende klinische situaties tot diagnostische beslissingen en beslissingen over verslaglegging komen. U leest drie korte hypothetische scenario's en geeft aan hoe u over elk scenario zou rapporteren. Er zijn geen goede of foute antwoorden.",
+          privacyTitle: "Privacy en anonimiteit",
+          privacyText:
+            "Deelname is vrijwillig, volledig anoniem en kan op elk moment worden ingetrokken. Er worden geen identificerende gegevens verzameld en de gegevens worden uitsluitend gebruikt voor statistische en wetenschappelijke doeleinden.",
+          contactTitle: "Contact",
+          department: "Afdeling Diagnostische en Interventionele Radiologie",
+          hospital: "TUM Universitair Ziekenhuis",
+          start: "Studie starten",
+          opening: "Studie wordt geopend…",
+        },
+        */
+      };
+      // Language the page text is shown in. The questionnaire language is
+      // whatever is chosen in the dropdown ("" until the participant picks).
+      var currentLang = DEFAULT_LANG;
+      var langSelect = document.getElementById("langSelect");
+
+      function t(key) {
+        return TRANSLATIONS[currentLang][key];
+      }
+
+      function isAvailable(lang) {
+        return !!(TRANSLATIONS[lang] && FORM_URLS[lang]);
+      }
+
+      // A language the participant explicitly chose earlier in this browser.
+      function getSavedLang() {
+        try {
+          var saved = localStorage.getItem(LANG_KEY);
+          if (isAvailable(saved)) return saved;
+        } catch (e) {}
+        return null;
+      }
+
+      // Only decides how the page text is shown before a choice is made;
+      // it never selects the questionnaire language.
+      function browserLang() {
+        var prefs = navigator.languages || [navigator.language || ""];
+        for (var i = 0; i < prefs.length; i++) {
+          var code = String(prefs[i]).slice(0, 2).toLowerCase();
+          if (isAvailable(code)) return code;
+        }
+        return DEFAULT_LANG;
+      }
+
+      // The study can only start once a questionnaire language is chosen.
+      function updateStartState() {
+        var chosen = isAvailable(langSelect.value);
+        document.getElementById("startButton").disabled = !chosen;
+        document.getElementById("langStatus").textContent = t(
+          chosen ? "langNote" : "langHint",
+        );
+      }
+
+      function applyLang(lang) {
+        currentLang = isAvailable(lang) ? lang : DEFAULT_LANG;
+        document.documentElement.lang = currentLang;
+        document.title = t("pageTitle");
+
+        Array.prototype.forEach.call(
+          document.querySelectorAll("[data-i18n]"),
+          function (el) {
+            el.textContent = t(el.getAttribute("data-i18n"));
+          },
+        );
+
+        updateStartState();
+        // Translated text can change the height of open panels
+        resizeOpenPanels();
+      }
+
+      langSelect.addEventListener("change", function () {
+        applyLang(this.value);
+        try {
+          localStorage.setItem(LANG_KEY, currentLang);
+        } catch (e) {}
       });
+
+      var savedLang = getSavedLang();
+      if (savedLang) langSelect.value = savedLang;
+      applyLang(savedLang || browserLang());
 
       // ---- Randomisation (in the browser, no server) ----
 
@@ -333,45 +662,57 @@
         try {
           var saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
           var arm = saved && saved.arm;
-          if (typeof arm === "number" && arm >= 0 && arm < FORM_URLS.length && arm % 1 === 0) {
+          if (
+            typeof arm === "number" &&
+            arm >= 0 &&
+            arm < FORM_NAMES.length &&
+            arm % 1 === 0
+          ) {
             return arm;
           }
         } catch (e) {}
         return null;
       }
 
-      function saveArm(arm) {
+      function saveArm(arm, lang) {
         try {
           localStorage.setItem(
             STORAGE_KEY,
-            JSON.stringify({ arm: arm, form: FORM_NAMES[arm] })
+            JSON.stringify({ arm: arm, form: FORM_NAMES[arm], lang: lang }),
           );
         } catch (e) {}
       }
 
       function startSurvey() {
+        var lang = langSelect.value;
+        if (!isAvailable(lang)) {
+          updateStartState();
+          langSelect.focus();
+          return;
+        }
+
         var btn = document.getElementById("startButton");
         btn.disabled = true;
-        btn.innerText = "Opening study...";
+        btn.innerText = t("opening");
 
         // A returning participant in this browser goes back to the same
-        // form instead of being randomised into another arm.
+        // arm instead of being randomised into another one. The arm is
+        // the same in every language; only the form's language changes.
         var arm = getSavedArm();
 
         if (arm === null) {
-          arm = randomIndex(FORM_URLS.length);
-          saveArm(arm);
+          arm = randomIndex(FORM_NAMES.length);
         }
+        saveArm(arm, lang);
 
-        window.location.href = FORM_URLS[arm];
+        window.location.href = FORM_URLS[lang][arm];
       }
 
       // Coming back via the Back button: re-enable the button.
       window.addEventListener("pageshow", function (event) {
         if (event.persisted) {
-          var btn = document.getElementById("startButton");
-          btn.disabled = false;
-          btn.innerText = "Start Study";
+          document.getElementById("startButton").innerText = t("start");
+          updateStartState();
         }
       });
     </script>
